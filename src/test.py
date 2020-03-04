@@ -65,12 +65,13 @@ class Test:
 
             # get estimate
             start_wait = time.time()
-            estimate = self._model.evaluate()
+            estimate_loss = self._model.evaluate()
             total_time += time.time() - start_wait
             n_total_time += 1
-
+            
             # store estimate
-            self._save_img(estimate, i_test_batch)
+            print(estimate_loss)
+            #self._save_img(estimate, i_test_batch)
 
         print(f"mean time per sample: {total_time/n_total_time}")
 

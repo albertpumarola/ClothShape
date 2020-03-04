@@ -85,14 +85,13 @@ class Model1(BaseModel):
 
         # estimate object categories
         with torch.no_grad():
-            self.forward(keep_data_for_visuals=True, estimate_loss=False)
-            eval = np.transpose(self._vis_input_img, (1, 2, 0))
+            loss = self.forward(keep_data_for_visuals=True, estimate_loss=True)
 
         # set model back to train if necessary
         if is_train:
             self.set_train()
 
-        return eval
+        return loss
 
     def optimize_parameters(self, keep_data_for_visuals=False):
         if self._is_train:

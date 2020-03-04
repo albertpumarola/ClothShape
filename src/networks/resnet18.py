@@ -4,22 +4,25 @@ import torch.nn.functional as F
 import torch
 
 class ResNet18(NetworkBase):
-    def __init__(self, num_classes=10):
+    def __init__(self, num_classes=10, use_depth=False):
         super(ResNet18, self).__init__()
         self._name = "ResNet18"
         self._in_planes = 64
+        self._use_depth = use_depth
 
         self._conv1_rgb = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self._bn1_rgb = nn.BatchNorm2d(64)
         self._layer1_rgb = self._make_layer(ResNetBlock, [64, 64], [64, 64], 2, stride=1)
         self._layer2_rgb = self._make_layer(ResNetBlock, [64, 128], [128, 128], 2, stride=2)
 
-        self._conv1_depth = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=False)
-        self._bn1_depth = nn.BatchNorm2d(64)
-        self._layer1_depth = self._make_layer(ResNetBlock, [64, 64], [64, 64], 2, stride=1)
-        self._layer2_depth = self._make_layer(ResNetBlock, [64, 128], [128, 128], 2, stride=2)
+        if use_depth:
+            self._conv1_depth = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=False)
+            self._bn1_depth = nn.BatchNorm2d(64)
+            self._layer1_depth = self._make_layer(ResNetBlock, [64, 64], [64, 64], 2, stride=1)
+            self._layer2_depth = self._make_layer(ResNetBlock, [64, 128], [128, 128], 2, stride=2)
 
-        self._layer3 = self._make_layer(ResNetBlock, [256, 256], [256, 256], 2, stride=2)
+        layer3_nc = 256 if use_depth else 128
+        self._layer3 = self._make_layer(ResNetBlock, [layer3_nc, layer3_nc], [256, 256], 2, stride=2)
         self._layer4 = self._make_layer(ResNetBlock, [256, 512], [512, 512], 2, stride=2)
         self._linear = nn.Linear(512 * ResNetBlock.expansion, num_classes)
 
@@ -35,16 +38,19 @@ class ResNet18(NetworkBase):
             layers.append(block(in_plane, out_plane, stride))
         return nn.Sequential(*layers)
 
-    def forward(self, rgb, depth):
+    def forward(self, rgb, depth=None):
         enc_rgb = F.relu(self._bn1_rgb(self._conv1_rgb(rgb)))
         enc_rgb = self._layer1_rgb(enc_rgb)
         enc_rgb = self._layer2_rgb(enc_rgb)
 
-        enc_depth = F.relu(self._bn1_depth(self._conv1_depth(depth)))
-        enc_depth = self._layer1_rgb(enc_depth)
-        enc_depth = self._layer2_rgb(enc_depth)
-
-        features = torch.cat([enc_rgb, enc_depth], -3)
+        if self._use_depth:
+            enc_depth = F.relu(self._bn1_depth(self._conv1_depth(depth)))
+            enc_depth = self._layer1_rgb(enc_depth)
+            enc_depth = self._layer2_rgb(enc_depth)
+            features = torch.cat([enc_rgb, enc_depth], -3)
+            
+        else:
+            features = enc_rgb
 
         out = self._layer3(features)
         out = self._layer4(out)
